@@ -300,28 +300,28 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-100 text-slate-900">
       {notice && (
         <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-lg">
           {notice}
         </div>
       )}
 
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950 text-white shadow-lg shadow-slate-900/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm ring-1 ring-white/10">
               IS
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-bold tracking-tight text-slate-950 sm:text-lg">
+              <h1 className="truncate text-base font-bold tracking-tight text-white sm:text-lg">
                 Interns Supervisor Support Desk
               </h1>
-              <p className="hidden text-xs text-slate-500 sm:block">Intern support and matter management</p>
+              <p className="hidden text-xs text-slate-300 sm:block">Intern support and matter management</p>
             </div>
           </div>
 
-          <div className="flex shrink-0 rounded-xl border border-slate-200 bg-slate-100 p-1">
+          <div className="flex shrink-0 rounded-xl border border-slate-700 bg-slate-900 p-1">
             {(['intern', 'supervisor'] as ActiveView[]).map((view) => (
               <button
                 key={view}
@@ -329,8 +329,8 @@ function App() {
                 onClick={() => switchView(view)}
                 className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize transition sm:px-4 sm:text-sm ${
                   activeView === view
-                    ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white text-slate-950 shadow-sm'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 {view}
@@ -385,7 +385,7 @@ function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white">
+      <footer className="border-t border-slate-300 bg-slate-200">
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-6 text-xs text-slate-400 sm:px-6 lg:px-8">
           <p className="font-medium text-slate-500">Interns Supervisor Support Desk</p>
           <p>Designed to keep intern requests clear, traceable and easy to manage.</p>
@@ -417,7 +417,7 @@ function InternView({
   return (
     <div className="space-y-8">
       <section>
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Intern support</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Intern support</span>
         <h2 className="mt-2 max-w-2xl text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
           Get the right support, without the back-and-forth.
         </h2>
@@ -451,7 +451,7 @@ function InternView({
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50/60 px-5 py-5 sm:px-7">
           <div className="flex items-start gap-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-sm font-bold text-indigo-700">01</div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-bold text-blue-800">01</div>
             <div>
               <h3 className="text-lg font-bold text-slate-950">Submit a matter</h3>
               <p className="mt-1 text-sm text-slate-500">Fields marked with * are required.</p>
@@ -583,7 +583,7 @@ function InternView({
             <p className="max-w-xl text-xs leading-5 text-slate-500">
               Please review your contact details before submitting so the supervisor can reach you if clarification is needed.
             </p>
-            <button type="submit" className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-100">
+            <button type="submit" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100">
               Submit Matter →
             </button>
           </div>
@@ -625,7 +625,7 @@ function SupervisorView(props: SupervisorViewProps) {
     <div className="space-y-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Supervisor workspace</span>
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Supervisor workspace</span>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Support operations</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">Manage availability, triage new matters, and keep requests moving.</p>
         </div>
@@ -653,7 +653,7 @@ function SupervisorView(props: SupervisorViewProps) {
                     type="button"
                     onClick={() => setSupervisorStatus(status)}
                     className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                      supervisorStatus === status ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                      supervisorStatus === status ? 'bg-blue-900 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     {status}
@@ -668,7 +668,7 @@ function SupervisorView(props: SupervisorViewProps) {
                 type="date"
                 value={nextOfficeDate}
                 onChange={(event) => setNextOfficeDate(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
               />
             </div>
           </div>
@@ -700,13 +700,13 @@ function SupervisorView(props: SupervisorViewProps) {
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Search name, email, type or ID..."
-                className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 sm:w-72"
+                className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 sm:w-72"
               />
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'All' | MatterStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-400">
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'All' | MatterStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-600">
                 <option value="All">All statuses</option>
                 {matterStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
-              <select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value as 'All' | HandlingMethod)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-400">
+              <select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value as 'All' | HandlingMethod)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-600">
                 <option value="All">All handling</option>
                 <option value="Remote">Remote</option>
                 <option value="Physical">Physical</option>
@@ -715,7 +715,7 @@ function SupervisorView(props: SupervisorViewProps) {
             </div>
           </div>
           {hasActiveFilters && (
-            <button type="button" onClick={resetFilters} className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-700">Clear filters</button>
+            <button type="button" onClick={resetFilters} className="mt-3 text-xs font-bold text-blue-700 hover:text-blue-800">Clear filters</button>
           )}
         </div>
 
@@ -726,7 +726,7 @@ function SupervisorView(props: SupervisorViewProps) {
             <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">
               {matters.length === 0 ? 'New intern submissions will appear here automatically.' : 'Try changing your search term or filters.'}
             </p>
-            {hasActiveFilters && <button type="button" onClick={resetFilters} className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white">Reset filters</button>}
+            {hasActiveFilters && <button type="button" onClick={resetFilters} className="mt-4 rounded-lg bg-blue-900 px-4 py-2 text-xs font-bold text-white">Reset filters</button>}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -739,13 +739,13 @@ function SupervisorView(props: SupervisorViewProps) {
                       <StatusBadge status={matter.status} />
                       <HandlingBadge handling={matter.handling} />
                     </div>
-                    <h4 className="mt-3 truncate text-base font-bold text-slate-900 group-hover:text-indigo-700">{matter.matterType}</h4>
+                    <h4 className="mt-3 truncate text-base font-bold text-slate-900 group-hover:text-blue-800">{matter.matterType}</h4>
                     <p className="mt-1 text-sm font-medium text-slate-600">{matter.name} <span className="font-normal text-slate-400">· {matter.internType} · {matter.location}</span></p>
                     <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{matter.description}</p>
                   </div>
                   <div className="shrink-0 text-left lg:text-right">
                     <p className="text-xs font-medium text-slate-400">{formatDate(matter.submittedAt)}</p>
-                    <p className="mt-2 text-xs font-bold text-indigo-600 opacity-0 transition group-hover:opacity-100">Open matter →</p>
+                    <p className="mt-2 text-xs font-bold text-blue-700 opacity-0 transition group-hover:opacity-100">Open matter →</p>
                   </div>
                 </div>
               </button>
@@ -959,7 +959,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   )
 }
 
-const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50'
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100'
 
 function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
