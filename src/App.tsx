@@ -1,19 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import styled from 'styled-components'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 type SupervisorStatus = 'In Office' | 'Working Remotely'
-
 type InternType = 'University Intern' | 'NYSC Intern'
-
 type HandlingMethod = 'Remote' | 'Physical' | 'Either / Not Sure'
-
-type MatterStatus =
-  | 'Submitted'
-  | 'Pending'
-  | 'In Progress'
-  | 'Paused'
-  | 'Resolved'
-  | 'Unresolved'
+type MatterStatus = 'Submitted' | 'Pending' | 'In Progress' | 'Paused' | 'Resolved' | 'Unresolved'
+type ActiveView = 'intern' | 'supervisor'
 
 type Matter = {
   id: number
@@ -30,6 +21,24 @@ type Matter = {
   supervisorNote: string
   pauseReason: string
   historyVisibility: 'Public' | 'Private'
+}
+
+type DeskSettings = {
+  supervisorStatus: SupervisorStatus
+  nextOfficeDate: string
+}
+
+type FormState = {
+  name: string
+  email: string
+  phone: string
+  internType: InternType
+  location: string
+  otherLocation: string
+  matterType: string
+  otherMatterType: string
+  handling: HandlingMethod
+  description: string
 }
 
 const matterTypes = [
@@ -59,217 +68,144 @@ const pauseReasons = [
   'Deferred',
 ]
 
+const matterStatuses: MatterStatus[] = [
+  'Submitted',
+  'Pending',
+  'In Progress',
+  'Paused',
+  'Resolved',
+  'Unresolved',
+]
+
 const STORAGE_KEY = 'intern-supervisor-support-desk-matters'
+const SETTINGS_KEY = 'intern-supervisor-support-desk-settings'
 
-// ========================================
-// Styled Component
-// ========================================
-
-/*
-const StatusBadge = styled.span<{ status: MatterStatus }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-
-  background: ${(props) => {
-    switch (props.status) {
-      case 'Submitted':
-        return '#f3e8ff'
-      case 'Pending':
-        return '#fef3c7'
-      case 'In Progress':
-        return '#dbeafe'
-      case 'Paused':
-        return '#ffedd5'
-      case 'Resolved':
-        return '#dcfce7'
-      case 'Unresolved':
-        return '#fee2e2'
-    }
-  }}
-
-  color: ${(props) => {
-    switch (props.status) {
-      case 'Submitted':
-        return '#7e22ce'
-      case 'Pending':
-        return '#b45309'
-      case 'In Progress':
-        return '#2563eb'
-      case 'Paused':
-        return '#c2410c'
-      case 'Resolved':
-        return '#15803d'
-      case 'Unresolved':
-        return '#b91c1c'
-    }
-  }}
-`
-*/
+const initialForm: FormState = {
+  name: '',
+  email: '',
+  phone: '',
+  internType: 'University Intern',
+  location: 'Abuja',
+  otherLocation: '',
+  matterType: matterTypes[0],
+  otherMatterType: '',
+  handling: 'Either / Not Sure',
+  description: '',
+}
 
 function App() {
-  const [supervisorStatus, setSupervisorStatus] =
-    useState<SupervisorStatus>('Working Remotely')
-
-  /*
-    const [nextOfficeDate, setNextOfficeDate] =
-    useState('2026-08-24')
-  */
- 
-  const [activeView, setActiveView] =
-    useState<'intern' | 'supervisor'>('intern')
-
+  const [activeView, setActiveView] = useState<ActiveView>('intern')
+  const [supervisorStatus, setSupervisorStatus] = useState<SupervisorStatus>('Working Remotely')
+  const [nextOfficeDate, setNextOfficeDate] = useState('')
   const [matters, setMatters] = useState<Matter[]>([])
-
   const [searchTerm, setSearchTerm] = useState('')
-
-  const [statusFilter, setStatusFilter] =
-    useState<'All' | MatterStatus>('All')
-
-  const [handlingFilter, setHandlingFilter] =
-    useState<'All' | HandlingMethod>('All')
-
+  const [statusFilter, setStatusFilter] = useState<'All' | MatterStatus>('All')
+  const [handlingFilter, setHandlingFilter] = useState<'All' | HandlingMethod>('All')
   const [storageLoaded, setStorageLoaded] = useState(false)
-
-  const [selectedMatterId, setSelectedMatterId] =
-    useState<number | null>(null)
-
-
-
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    internType: 'University Intern' as InternType,
-    location: 'Abuja',
-    otherLocation: '',
-    matterType: matterTypes[0],
-    otherMatterType: '',
-    handling: 'Either / Not Sure' as HandlingMethod,
-    description: '',
-  })
-
+  const [selectedMatterId, setSelectedMatterId] = useState<number | null>(null)
+  const [form, setForm] = useState<FormState>(initialForm)
   const [noteDraft, setNoteDraft] = useState('')
   const [pauseReasonDraft, setPauseReasonDraft] = useState('')
+  const [submissionSuccess, setSubmissionSuccess] = useState<number | null>(null)
+  const [notice, setNotice] = useState('')
 
-  // Load saved matters
-useEffect(() => {
-  const saved = window.localStorage.getItem(STORAGE_KEY)
+  useEffect(() => {
+    const savedMatters = window.localStorage.getItem(STORAGE_KEY)
+    const savedSettings = window.localStorage.getItem(SETTINGS_KEY)
 
-  if (saved) {
-    try {
-      const parsed: Matter[] = JSON.parse(saved)
-      setMatters(parsed)
-    } catch (error) {
-      console.error('Could not load saved matters:', error)
+    if (savedMatters) {
+      try {
+        setMatters(JSON.parse(savedMatters) as Matter[])
+      } catch (error) {
+        console.error('Could not load saved matters:', error)
+      }
     }
-  }
 
-  setStorageLoaded(true)
-}, [])
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings) as Partial<DeskSettings>
+        if (settings.supervisorStatus) setSupervisorStatus(settings.supervisorStatus)
+        if (typeof settings.nextOfficeDate === 'string') setNextOfficeDate(settings.nextOfficeDate)
+      } catch (error) {
+        console.error('Could not load desk settings:', error)
+      }
+    }
 
-// Save only after the initial load has completed
-useEffect(() => {
-  if (!storageLoaded) {
-    return
-  }
+    setStorageLoaded(true)
+  }, [])
 
-  window.localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(matters)
-  )
-}, [matters, storageLoaded])
+  useEffect(() => {
+    if (!storageLoaded) return
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(matters))
+  }, [matters, storageLoaded])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    const settings: DeskSettings = { supervisorStatus, nextOfficeDate }
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  }, [supervisorStatus, nextOfficeDate, storageLoaded])
+
+  useEffect(() => {
+    if (!notice) return
+    const timeout = window.setTimeout(() => setNotice(''), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [notice])
+
   const selectedMatter = useMemo(
     () => matters.find((matter) => matter.id === selectedMatterId) ?? null,
-    [matters, selectedMatterId]
+    [matters, selectedMatterId],
   )
 
   const filteredMatters = useMemo(() => {
-  return matters.filter((matter) => {
     const search = searchTerm.toLowerCase().trim()
 
-    const matchesSearch =
-      !search ||
-      matter.name.toLowerCase().includes(search) ||
-      matter.email.toLowerCase().includes(search) ||
-      matter.matterType.toLowerCase().includes(search) ||
-      matter.location.toLowerCase().includes(search) ||
-      String(matter.id).includes(search)
+    return matters.filter((matter) => {
+      const matchesSearch =
+        !search ||
+        matter.name.toLowerCase().includes(search) ||
+        matter.email.toLowerCase().includes(search) ||
+        matter.matterType.toLowerCase().includes(search) ||
+        matter.location.toLowerCase().includes(search) ||
+        formatMatterId(matter).toLowerCase().includes(search) ||
+        String(matter.id).includes(search)
 
-    const matchesStatus =
-      statusFilter === 'All' ||
-      matter.status === statusFilter
-
-    const matchesHandling =
-      handlingFilter === 'All' ||
-      matter.handling === handlingFilter
-
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesHandling
-    )
-  })
-}, [
-  matters,
-  searchTerm,
-  statusFilter,
-  handlingFilter,
-])
-
-
-  const handleFormChange = (
-    field: string,
-    value: string
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }))
-  }
-
-  const resetForm = () => {
-    setForm({
-      name: '',
-      email: '',
-      phone: '',
-      internType: 'University Intern',
-      location: 'Abuja',
-      otherLocation: '',
-      matterType: matterTypes[0],
-      otherMatterType: '',
-      handling: 'Either / Not Sure',
-      description: '',
+      const matchesStatus = statusFilter === 'All' || matter.status === statusFilter
+      const matchesHandling = handlingFilter === 'All' || matter.handling === handlingFilter
+      return matchesSearch && matchesStatus && matchesHandling
     })
+  }, [matters, searchTerm, statusFilter, handlingFilter])
+
+  const counts = useMemo(() => {
+    const count = (status: MatterStatus) => matters.filter((matter) => matter.status === status).length
+    return {
+      total: matters.length,
+      submitted: count('Submitted'),
+      pending: count('Pending'),
+      inProgress: count('In Progress'),
+      paused: count('Paused'),
+      resolved: count('Resolved'),
+    }
+  }, [matters])
+
+  const handleFormChange = <K extends keyof FormState>(field: K, value: FormState[K]) => {
+    setForm((current) => ({ ...current, [field]: value }))
   }
+
+  const resetForm = () => setForm(initialForm)
 
   const submitMatter = () => {
-    if (
-      !form.name.trim() ||
-      !form.email.trim() ||
-      !form.phone.trim() ||
-      !form.description.trim()
-    ) {
-      alert('Please complete all required fields.')
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.description.trim()) {
+      setNotice('Please complete all required fields.')
       return
     }
 
-    if (
-      form.location === 'Other' &&
-      !form.otherLocation.trim()
-    ) {
-      alert('Please specify the office location.')
+    if (form.location === 'Other' && !form.otherLocation.trim()) {
+      setNotice('Please specify the office location.')
       return
     }
 
-    if (
-      form.matterType === 'Other' &&
-      !form.otherMatterType.trim()
-    ) {
-      alert('Please specify the matter type.')
+    if (form.matterType === 'Other' && !form.otherMatterType.trim()) {
+      setNotice('Please specify the matter type.')
       return
     }
 
@@ -279,14 +215,8 @@ useEffect(() => {
       email: form.email.trim(),
       phone: form.phone.trim(),
       internType: form.internType,
-      location:
-        form.location === 'Other'
-          ? form.otherLocation.trim()
-          : form.location,
-      matterType:
-        form.matterType === 'Other'
-          ? form.otherMatterType.trim()
-          : form.matterType,
+      location: form.location === 'Other' ? form.otherLocation.trim() : form.location,
+      matterType: form.matterType === 'Other' ? form.otherMatterType.trim() : form.matterType,
       handling: form.handling,
       description: form.description.trim(),
       status: 'Submitted',
@@ -296,26 +226,15 @@ useEffect(() => {
       historyVisibility: 'Private',
     }
 
-    setMatters((current) => [
-      newMatter,
-      ...current,
-    ])
-
+    setMatters((current) => [newMatter, ...current])
+    setSubmissionSuccess(newMatter.id)
     resetForm()
-
-    alert('Matter submitted successfully.')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const updateMatter = (
-    id: number,
-    updates: Partial<Matter>
-  ) => {
+  const updateMatter = (id: number, updates: Partial<Matter>) => {
     setMatters((current) =>
-      current.map((matter) =>
-        matter.id === id
-          ? { ...matter, ...updates }
-          : matter
-      )
+      current.map((matter) => (matter.id === id ? { ...matter, ...updates } : matter)),
     )
   }
 
@@ -323,6 +242,7 @@ useEffect(() => {
     setSelectedMatterId(matter.id)
     setNoteDraft(matter.supervisorNote)
     setPauseReasonDraft(matter.pauseReason)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const closeMatter = () => {
@@ -333,985 +253,739 @@ useEffect(() => {
 
   const changeStatus = (status: MatterStatus) => {
     if (!selectedMatter) return
-
     updateMatter(selectedMatter.id, {
       status,
-      pauseReason:
-        status === 'Paused'
-          ? pauseReasonDraft
-          : '',
+      pauseReason: status === 'Paused' ? selectedMatter.pauseReason : '',
     })
+    if (status !== 'Paused') setPauseReasonDraft('')
+    setNotice(`Matter moved to ${status}.`)
   }
 
   const saveSupervisorNote = () => {
     if (!selectedMatter) return
-
-    updateMatter(selectedMatter.id, {
-      supervisorNote: noteDraft.trim(),
-    })
-
-    alert('Supervisor note saved.')
+    updateMatter(selectedMatter.id, { supervisorNote: noteDraft.trim() })
+    setNotice('Supervisor note saved.')
   }
 
   const savePauseReason = () => {
     if (!selectedMatter) return
-
-    updateMatter(selectedMatter.id, {
-      pauseReason: pauseReasonDraft,
-    })
-
-    alert('Pause reason saved.')
+    if (!pauseReasonDraft) {
+      setNotice('Select a pause reason before saving.')
+      return
+    }
+    updateMatter(selectedMatter.id, { pauseReason: pauseReasonDraft, status: 'Paused' })
+    setNotice('Pause reason saved.')
   }
 
   const clearAllMatters = () => {
     if (matters.length === 0) return
-
-    const confirmed = window.confirm(
-      'Clear all submitted matters? This cannot be undone.'
-    )
-
+    const confirmed = window.confirm('Clear all submitted matters? This cannot be undone.')
     if (confirmed) {
       setMatters([])
       closeMatter()
+      setNotice('All matters cleared.')
     }
   }
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString('en-NG', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    })
+  const resetFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('All')
+    setHandlingFilter('All')
   }
 
-  const statusClasses = (status: MatterStatus) => {
-    switch (status) {
-      case 'Submitted':
-        return 'bg-purple-100 text-purple-700'
-      case 'Pending':
-        return 'bg-amber-100 text-amber-700'
-      case 'In Progress':
-        return 'bg-blue-100 text-blue-700'
-      case 'Paused':
-        return 'bg-orange-100 text-orange-700'
-      case 'Resolved':
-        return 'bg-green-100 text-green-700'
-      case 'Unresolved':
-        return 'bg-red-100 text-red-700'
-    }
+  const switchView = (view: ActiveView) => {
+    setActiveView(view)
+    closeMatter()
+    setSubmissionSuccess(null)
   }
-
-
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {notice && (
+        <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-lg">
+          {notice}
+        </div>
+      )}
 
-      {/* HEADER */}
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              Interns Supervisor Support Desk
-            </h1>
-
-            <p className="text-sm text-slate-500">
-              Manage intern matters and supervisor support
-            </p>
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-sm">
+              IS
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold tracking-tight text-slate-950 sm:text-lg">
+                Interns Supervisor Support Desk
+              </h1>
+              <p className="hidden text-xs text-slate-500 sm:block">Intern support and matter management</p>
+            </div>
           </div>
 
-          <div className="flex rounded-lg bg-slate-100 p-1">
-
-            <button
-              onClick={() => {
-                setActiveView('intern')
-                closeMatter()
-              }}
-              className={`rounded-md px-4 py-2 text-sm font-medium ${
-                activeView === 'intern'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500'
-              }`}
-            >
-              Intern
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveView('supervisor')
-                closeMatter()
-              }}
-              className={`rounded-md px-4 py-2 text-sm font-medium ${
-                activeView === 'supervisor'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500'
-              }`}
-            >
-              Supervisor
-            </button>
-
+          <div className="flex shrink-0 rounded-xl border border-slate-200 bg-slate-100 p-1">
+            {(['intern', 'supervisor'] as ActiveView[]).map((view) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => switchView(view)}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize transition sm:px-4 sm:text-sm ${
+                  activeView === view
+                    ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {view}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-
-        {/* ================= INTERN VIEW ================= */}
-        {activeView === 'intern' && (
-          <div className="space-y-6">
-
-            {/* Availability */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-
-              <p className="text-sm font-medium text-slate-500">
-                Supervisor Availability
-              </p>
-
-              <div className="mt-3 flex items-center gap-3">
-
-                <span
-                  className={`h-3 w-3 rounded-full ${
-                    supervisorStatus === 'In Office'
-                      ? 'bg-green-500'
-                      : 'bg-blue-500'
-                  }`}
-                />
-
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {supervisorStatus}
-                </h2>
-
-              </div>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Next physical office availability:{' '}
-                <strong className="text-slate-700">
-                  {new Date(nextOfficeDate).toLocaleDateString(
-                    'en-NG',
-                    {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    }
-                  )}
-                </strong>
-              </p>
-
-            </div>
-
-            {/* Submission Form */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-
-              <h2 className="text-lg font-semibold text-slate-900">
-                Submit a Matter
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Submit an issue or request for supervisor attention.
-              </p>
-
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  submitMatter()
-                }}
-                className="mt-6 space-y-6"
-              >
-
-                <div className="grid gap-5 md:grid-cols-2">
-
-                  {/* Name */}
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      Full Name *
-                    </label>
-
-                    <input
-                      value={form.name}
-                      onChange={(event) =>
-                        handleFormChange(
-                          'name',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border px-3 py-2.5 outline-none focus:ring-2 focus:ring-slate-300"
-                      placeholder="Your full name"
-                    />
-                  </div>
-
-                  {/* Intern Type */}
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      Intern Type *
-                    </label>
-
-                    <select
-                      value={form.internType}
-                      onChange={(event) =>
-                        handleFormChange(
-                          'internType',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5"
-                    >
-                      <option>University Intern</option>
-                      <option>NYSC Intern</option>
-                    </select>
-
-
-                    
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      Email *
-                    </label>
-
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(event) =>
-                        handleFormChange(
-                          'email',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-
-                  {/* Phone */}
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      Phone Number *
-                    </label>
-
-                    <input
-                      value={form.phone}
-                      onChange={(event) =>
-                        handleFormChange(
-                          'phone',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                      placeholder="Phone number"
-                    />
-                  </div>
-
-                  {/* Location */}
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      Office Location *
-                    </label>
-
-                    <select
-                      value={form.location}
-                      onChange={(event) =>
-                        handleFormChange(
-                          'location',
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5"
-                    >
-                      <option>Abuja</option>
-                      <option>Kaduna</option>
-                      <option>Other</option>
-                    </select>
-                  </div>
-
-                  {form.location === 'Other' && (
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">
-                        Specify Location *
-                      </label>
-
-                      <input
-                        value={form.otherLocation}
-                        onChange={(event) =>
-                          handleFormChange(
-                            'otherLocation',
-                            event.target.value
-                          )
-                        }
-                        className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                        placeholder="Enter location"
-                      />
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Matter */}
-                <div className="border-t pt-6">
-
-                  <h3 className="font-semibold text-slate-900">
-                    Matter Information
-                  </h3>
-
-                  <div className="mt-5 space-y-5">
-
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">
-                        Matter Type *
-                      </label>
-
-                      <select
-                        value={form.matterType}
-                        onChange={(event) =>
-                          handleFormChange(
-                            'matterType',
-                            event.target.value
-                          )
-                        }
-                        className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5"
-                      >
-                        {matterTypes.map((type) => (
-                          <option key={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {form.matterType === 'Other' && (
-                      <div>
-                        <label className="text-sm font-medium text-slate-700">
-                          Specify Matter Type *
-                        </label>
-
-                        <input
-                          value={form.otherMatterType}
-                          onChange={(event) =>
-                            handleFormChange(
-                              'otherMatterType',
-                              event.target.value
-                            )
-                          }
-                          className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                          placeholder="Describe the matter type"
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">
-                        Preferred Handling *
-                      </label>
-
-                      <select
-                        value={form.handling}
-                        onChange={(event) =>
-                          handleFormChange(
-                            'handling',
-                            event.target.value
-                          )
-                        }
-                        className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5"
-                      >
-                        <option>Remote</option>
-                        <option>Physical</option>
-                        <option>Either / Not Sure</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">
-                        Describe the Matter *
-                      </label>
-
-                      <textarea
-                        value={form.description}
-                        onChange={(event) =>
-                          handleFormChange(
-                            'description',
-                            event.target.value
-                          )
-                        }
-                        rows={5}
-                        className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                        placeholder="Briefly explain the issue or request..."
-                      />
-                    </div>
-
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-                  >
-                    Submit Matter
-                  </button>
-                </div>
-
-              </form>
-            </div>
-
-          </div>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        {activeView === 'intern' ? (
+          <InternView
+            supervisorStatus={supervisorStatus}
+            nextOfficeDate={nextOfficeDate}
+            form={form}
+            handleFormChange={handleFormChange}
+            submitMatter={submitMatter}
+            submissionSuccess={submissionSuccess}
+            setSubmissionSuccess={setSubmissionSuccess}
+          />
+        ) : selectedMatter ? (
+          <MatterDetail
+            matter={selectedMatter}
+            noteDraft={noteDraft}
+            pauseReasonDraft={pauseReasonDraft}
+            setNoteDraft={setNoteDraft}
+            setPauseReasonDraft={setPauseReasonDraft}
+            changeStatus={changeStatus}
+            saveSupervisorNote={saveSupervisorNote}
+            savePauseReason={savePauseReason}
+            closeMatter={closeMatter}
+          />
+        ) : (
+          <SupervisorView
+            supervisorStatus={supervisorStatus}
+            setSupervisorStatus={setSupervisorStatus}
+            nextOfficeDate={nextOfficeDate}
+            setNextOfficeDate={setNextOfficeDate}
+            counts={counts}
+            matters={matters}
+            filteredMatters={filteredMatters}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            handlingFilter={handlingFilter}
+            setHandlingFilter={setHandlingFilter}
+            openMatter={openMatter}
+            clearAllMatters={clearAllMatters}
+            resetFilters={resetFilters}
+          />
         )}
-
-        {/* ================= SUPERVISOR VIEW ================= */}
-        {activeView === 'supervisor' && (
-          <div className="space-y-6">
-
-            {/* Status */}
-            <div className="rounded-xl border bg-white p-6 shadow-sm">
-
-              <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-
-                <div>
-
-                  <p className="text-sm font-medium text-slate-500">
-                    Supervisor Status
-                  </p>
-
-                  <div className="mt-2 flex items-center gap-3">
-
-                    <span
-                      className={`h-3 w-3 rounded-full ${
-                        supervisorStatus === 'In Office'
-                          ? 'bg-green-500'
-                          : 'bg-blue-500'
-                      }`}
-                    />
-
-                    <h2 className="text-2xl font-bold text-slate-900">
-                      {supervisorStatus}
-                    </h2>
-
-                  </div>
-
-                  <p className="mt-2 text-sm text-slate-500">
-                    Next physical office availability:{' '}
-                    <strong className="text-slate-700">
-                      {new Date(nextOfficeDate).toLocaleDateString(
-                        'en-NG',
-                        {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        }
-                      )}
-                    </strong>
-                  </p>
-
-                </div>
-
-                <div className="flex gap-3">
-
-                  <button
-                    onClick={() =>
-                      setSupervisorStatus('In Office')
-                    }
-                    className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                      supervisorStatus === 'In Office'
-                        ? 'bg-green-600 text-white'
-                        : 'border text-slate-700'
-                    }`}
-                  >
-                    In Office
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setSupervisorStatus('Working Remotely')
-                    }
-                    className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                      supervisorStatus === 'Working Remotely'
-                        ? 'bg-blue-600 text-white'
-                        : 'border text-slate-700'
-                    }`}
-                  >
-                    Working Remotely
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* Dashboard Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-              <div className="rounded-xl border bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">
-                  Total Matters
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {matters.length}
-                </p>
-              </div>
-
-              <div className="rounded-xl border bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">
-                  Pending
-                </p>
-                <p className="mt-2 text-3xl font-bold text-amber-600">
-                  {
-                    matters.filter(
-                      (matter) => matter.status === 'Pending'
-                    ).length
-                  }
-                </p>
-              </div>
-
-              <div className="rounded-xl border bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">
-                  In Progress
-                </p>
-                <p className="mt-2 text-3xl font-bold text-blue-600">
-                  {
-                    matters.filter(
-                      (matter) => matter.status === 'In Progress'
-                    ).length
-                  }
-                </p>
-              </div>
-
-              <div className="rounded-xl border bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">
-                  Resolved
-                </p>
-                <p className="mt-2 text-3xl font-bold text-green-600">
-                  {
-                    matters.filter(
-                      (matter) => matter.status === 'Resolved'
-                    ).length
-                  }
-                </p>
-              </div>
-
-            </div>
-
-            {/* Matter Detail */}
-            {selectedMatter ? (
-              <div className="rounded-xl border bg-white shadow-sm">
-
-                <div className="flex items-center justify-between border-b p-6">
-
-                  <div>
-                    <p className="text-sm text-slate-500">
-                      Matter #{selectedMatter.id}
-                    </p>
-
-                    <h2 className="mt-1 text-xl font-bold text-slate-900">
-                      {selectedMatter.matterType}
-                    </h2>
-                  </div>
-
-                  <button
-                    onClick={closeMatter}
-                    className="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    ← Back to Queue
-                  </button>
-
-                </div>
-
-                <div className="p-6">
-
-                  <div className="grid gap-6 md:grid-cols-2">
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Intern
-                      </p>
-                      <p className="mt-1 font-medium text-slate-900">
-                        {selectedMatter.name}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Intern Type
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {selectedMatter.internType}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Email
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {selectedMatter.email}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Phone
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {selectedMatter.phone}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Office Location
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {selectedMatter.location}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Preferred Handling
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {selectedMatter.handling}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Submitted
-                      </p>
-                      <p className="mt-1 text-slate-700">
-                        {formatDate(selectedMatter.submittedAt)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        Current Status
-                      </p>
-
-                      <span
-                        className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-medium ${statusClasses(
-                          selectedMatter.status
-                        )}`}
-                      >
-                        {selectedMatter.status}
-                      </span>
-                    </div>
-
-                  </div>
-
-                  {/* Description */}
-                  <div className="mt-8 border-t pt-6">
-
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                      Description
-                    </p>
-
-                    <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700">
-                      {selectedMatter.description}
-                    </p>
-
-                  </div>
-
-                  {/* Status */}
-                  <div className="mt-8 border-t pt-6">
-
-                    <label className="text-sm font-medium text-slate-700">
-                      Matter Status
-                    </label>
-
-                    <select
-                      value={selectedMatter.status}
-                      onChange={(event) =>
-                        changeStatus(
-                          event.target.value as MatterStatus
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5 md:w-80"
-                    >
-                      <option>Submitted</option>
-                      <option>Pending</option>
-                      <option>In Progress</option>
-                      <option>Paused</option>
-                      <option>Resolved</option>
-                      <option>Unresolved</option>
-                    </select>
-
-                  </div>
-
-                  {/* Pause Reason */}
-                  {selectedMatter.status === 'Paused' && (
-                    <div className="mt-6 rounded-lg border border-orange-200 bg-orange-50 p-4">
-
-                      <label className="text-sm font-medium text-orange-900">
-                        Pause Reason
-                      </label>
-
-                      <select
-                        value={pauseReasonDraft}
-                        onChange={(event) =>
-                          setPauseReasonDraft(event.target.value)
-                        }
-                        className="mt-2 w-full rounded-lg border bg-white px-3 py-2.5"
-                      >
-                        <option value="">
-                          Select a reason
-                        </option>
-
-                        {pauseReasons.map((reason) => (
-                          <option key={reason}>
-                            {reason}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        onClick={savePauseReason}
-                        className="mt-3 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white"
-                      >
-                        Save Pause Reason
-                      </button>
-
-                    </div>
-                  )}
-
-                  {/* Supervisor Note */}
-                  <div className="mt-8 border-t pt-6">
-
-                    <label className="text-sm font-medium text-slate-700">
-                      Supervisor Note
-                    </label>
-
-                    <textarea
-                      value={noteDraft}
-                      onChange={(event) =>
-                        setNoteDraft(event.target.value)
-                      }
-                      rows={4}
-                      className="mt-2 w-full rounded-lg border px-3 py-2.5"
-                      placeholder="Add an internal note about this matter..."
-                    />
-
-                    <button
-                      onClick={saveSupervisorNote}
-                      className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-                    >
-                      Save Note
-                    </button>
-
-                  </div>
-
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Queue Controls */}
-                <div className="rounded-xl border bg-white p-5 shadow-sm">
-
-                  <div className="flex flex-col gap-4 md:flex-row">
-
-                    <input
-                      value={searchTerm}
-                      onChange={(event) =>
-                        setSearchTerm(event.target.value)
-                      }
-                      placeholder="Search matters..."
-                      className="flex-1 rounded-lg border px-3 py-2.5 outline-none focus:ring-2 focus:ring-slate-300"
-                    />
-
-                    <select
-                      value={statusFilter}
-                      onChange={(event) =>
-                        setStatusFilter(
-                          event.target.value as
-                            | 'All'
-                            | MatterStatus
-                        )
-                      }
-                      className="rounded-lg border bg-white px-3 py-2.5"
-                    >
-                      <option>All</option>
-                      <option>Submitted</option>
-                      <option>Pending</option>
-                      <option>In Progress</option>
-                      <option>Paused</option>
-                      <option>Resolved</option>
-                      <option>Unresolved</option>
-                    </select>
-
-                    <button
-                      onClick={clearAllMatters}
-                      className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                    >
-                      Clear All
-                    </button>
-
-                  </div>
-
-                </div>
-
-                {/* Matter Queue */}
-                <div className="rounded-xl border bg-white shadow-sm">
-
-                  <div className="border-b p-6">
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Matter Queue
-                    </h2>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      Review and manage submitted matters.
-                    </p>
-
-                    <div className="mt-5 flex flex-col gap-3 md:flex-row">
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(event) => setSearchTerm(event.target.value)}
-                        placeholder="Search by name, email, matter type or ID..."
-                        className="w-full rounded-lg border px-3 py-2.5 outline-none focus:ring-2 focus:ring-slate-300"
-                      />
-
-                      <select
-                        value={statusFilter}
-                        onChange={(event) =>
-                          setStatusFilter(
-                            event.target.value as 'All' | MatterStatus
-                          )
-                        }
-                        className="rounded-lg border bg-white px-3 py-2.5 outline-none md:w-52"
-                      >
-                        <option value="All">All Statuses</option>
-                        <option value="Submitted">Submitted</option>
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Paused">Paused</option>
-                        <option value="Resolved">Resolved</option>
-                        <option value="Unresolved">Unresolved</option>
-                      </select>
-
-                      <select
-                        value={handlingFilter}
-                        onChange={(event) =>
-                          setHandlingFilter(
-                            event.target.value as 'All' | HandlingMethod
-                          )
-                        }
-                        className="rounded-lg border bg-white px-3 py-2.5 outline-none md:w-52"
-                      >
-                        <option value="All">All Handling</option>
-                        <option value="Remote">Remote</option>
-                        <option value="Physical">Physical</option>
-                        <option value="Either / Not Sure">Either / Not Sure</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {matters.length === 0 ? (
-                  
-                    <div className="p-12 text-center">
-
-                      <p className="font-medium text-slate-700">
-                        {matters.length === 0
-                          ? 'No matters submitted'
-                          : 'No matching matters'}
-                      </p>
-
-                      <p className="mt-1 text-sm text-slate-500">
-                        {matters.length === 0
-                          ? 'Submitted matters will appear here.'
-                          : 'Try changing your search or status filter.'}
-                      </p>
-
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-
-                      {filteredMatters.map((matter) => (
-                        <button
-                          key={matter.id}
-                          onClick={() => openMatter(matter)}
-                          className="block w-full cursor-pointer p-6 text-left transition hover:bg-slate-50"
-                        >
-
-                          <div className="flex flex-col justify-between gap-4 md:flex-row">
-
-                            <div>
-
-                              <div className="flex flex-wrap items-center gap-2">
-
-                                <span className="font-semibold text-slate-900">
-                                  #{matter.id}
-                                </span>
-
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                                  {matter.internType}
-                                </span>
-
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                                  {matter.location}
-                                </span>
-
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                    matter.handling === 'Physical'
-                                      ? 'bg-orange-100 text-orange-700'
-                                      : matter.handling === 'Remote'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                >
-                                  {matter.handling}
-                                </span>
-
-                              </div>
-
-                              <h3 className="mt-3 font-semibold text-slate-900">
-                                {matter.matterType}
-                              </h3>
-
-                              <p className="mt-1 text-sm text-slate-600">
-                                {matter.name}
-                              </p>
-
-                              <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                                {matter.description}
-                              </p>
-
-                            </div>
-
-                            <div className="shrink-0">
-
-                              <span
-                                className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${statusClasses(
-                                  matter.status
-                                )}`}
-                              >
-                                {matter.status}
-                              </span>
-
-                              <p className="mt-2 text-xs text-slate-400">
-                                {formatDate(matter.submittedAt)}
-                              </p>
-
-                            </div>
-
-                          </div>
-
-                        </button>
-                      ))}
-
-                    </div>
-                  )}
-
-                </div>
-              </>
-            )}
-
-          </div>
-        )}
-
       </main>
+
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-6 text-xs text-slate-400 sm:px-6 lg:px-8">
+          <p className="font-medium text-slate-500">Interns Supervisor Support Desk</p>
+          <p>Designed to keep intern requests clear, traceable and easy to manage.</p>
+        </div>
+      </footer>
     </div>
   )
+}
+
+type InternViewProps = {
+  supervisorStatus: SupervisorStatus
+  nextOfficeDate: string
+  form: FormState
+  handleFormChange: <K extends keyof FormState>(field: K, value: FormState[K]) => void
+  submitMatter: () => void
+  submissionSuccess: number | null
+  setSubmissionSuccess: (id: number | null) => void
+}
+
+function InternView({
+  supervisorStatus,
+  nextOfficeDate,
+  form,
+  handleFormChange,
+  submitMatter,
+  submissionSuccess,
+  setSubmissionSuccess,
+}: InternViewProps) {
+  return (
+    <div className="space-y-8">
+      <section>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Intern support</span>
+        <h2 className="mt-2 max-w-2xl text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+          Get the right support, without the back-and-forth.
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+          Check your supervisor&apos;s availability, submit a matter, and provide the details needed for efficient follow-up.
+        </p>
+      </section>
+
+      <AvailabilityCard supervisorStatus={supervisorStatus} nextOfficeDate={nextOfficeDate} />
+
+      {submissionSuccess && (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Matter submitted successfully</p>
+              <p className="mt-1 text-sm leading-6 text-emerald-800">
+                Your reference is <strong>{formatMatterIdFromValues(submissionSuccess, submissionSuccess)}</strong>. Keep it for follow-up.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubmissionSuccess(null)}
+              className="self-start rounded-lg px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50/60 px-5 py-5 sm:px-7">
+          <div className="flex items-start gap-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-sm font-bold text-indigo-700">01</div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">Submit a matter</h3>
+              <p className="mt-1 text-sm text-slate-500">Fields marked with * are required.</p>
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            submitMatter()
+          }}
+          className="p-5 sm:p-7"
+        >
+          <FormSection number="1" title="Your information" description="Tell us who you are and where you are working from.">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label="Full Name *">
+                <input
+                  required
+                  autoComplete="name"
+                  value={form.name}
+                  onChange={(event) => handleFormChange('name', event.target.value)}
+                  className={inputClass}
+                  placeholder="Your full name"
+                />
+              </Field>
+              <Field label="Intern Type *">
+                <select
+                  value={form.internType}
+                  onChange={(event) => handleFormChange('internType', event.target.value as InternType)}
+                  className={inputClass}
+                >
+                  <option>University Intern</option>
+                  <option>NYSC Intern</option>
+                </select>
+              </Field>
+              <Field label="Email *">
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(event) => handleFormChange('email', event.target.value)}
+                  className={inputClass}
+                  placeholder="your@email.com"
+                />
+              </Field>
+              <Field label="Phone Number *">
+                <input
+                  required
+                  type="tel"
+                  autoComplete="tel"
+                  value={form.phone}
+                  onChange={(event) => handleFormChange('phone', event.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. 0801 234 5678"
+                />
+              </Field>
+              <Field label="Office Location *">
+                <select value={form.location} onChange={(event) => handleFormChange('location', event.target.value)} className={inputClass}>
+                  <option>Abuja</option>
+                  <option>Kaduna</option>
+                  <option>Other</option>
+                </select>
+              </Field>
+              {form.location === 'Other' && (
+                <Field label="Specify Location *">
+                  <input
+                    required
+                    value={form.otherLocation}
+                    onChange={(event) => handleFormChange('otherLocation', event.target.value)}
+                    className={inputClass}
+                    placeholder="Enter office location"
+                  />
+                </Field>
+              )}
+            </div>
+          </FormSection>
+
+          <FormSection number="2" title="Matter details" description="Give the supervisor enough context to understand what you need.">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label="Matter Type *">
+                <select value={form.matterType} onChange={(event) => handleFormChange('matterType', event.target.value)} className={inputClass}>
+                  {matterTypes.map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </Field>
+              <Field label="Preferred Handling *">
+                <select
+                  value={form.handling}
+                  onChange={(event) => handleFormChange('handling', event.target.value as HandlingMethod)}
+                  className={inputClass}
+                >
+                  <option>Remote</option>
+                  <option>Physical</option>
+                  <option>Either / Not Sure</option>
+                </select>
+              </Field>
+              {form.matterType === 'Other' && (
+                <div className="md:col-span-2">
+                  <Field label="Specify Matter Type *">
+                    <input
+                      required
+                      value={form.otherMatterType}
+                      onChange={(event) => handleFormChange('otherMatterType', event.target.value)}
+                      className={inputClass}
+                      placeholder="Describe the matter type"
+                    />
+                  </Field>
+                </div>
+              )}
+              <div className="md:col-span-2">
+                <Field label="Describe the Matter *" hint="Include relevant context, what you have tried, and the outcome you need.">
+                  <textarea
+                    required
+                    value={form.description}
+                    onChange={(event) => handleFormChange('description', event.target.value)}
+                    rows={6}
+                    maxLength={2000}
+                    className={`${inputClass} resize-y`}
+                    placeholder="Briefly explain the issue or request..."
+                  />
+                  <p className="mt-2 text-right text-xs text-slate-400">{form.description.length}/2000</p>
+                </Field>
+              </div>
+            </div>
+          </FormSection>
+
+          <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-xl text-xs leading-5 text-slate-500">
+              Please review your contact details before submitting so the supervisor can reach you if clarification is needed.
+            </p>
+            <button type="submit" className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-100">
+              Submit Matter →
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+type SupervisorViewProps = {
+  supervisorStatus: SupervisorStatus
+  setSupervisorStatus: (status: SupervisorStatus) => void
+  nextOfficeDate: string
+  setNextOfficeDate: (date: string) => void
+  counts: { total: number; submitted: number; pending: number; inProgress: number; paused: number; resolved: number }
+  matters: Matter[]
+  filteredMatters: Matter[]
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  statusFilter: 'All' | MatterStatus
+  setStatusFilter: (value: 'All' | MatterStatus) => void
+  handlingFilter: 'All' | HandlingMethod
+  setHandlingFilter: (value: 'All' | HandlingMethod) => void
+  openMatter: (matter: Matter) => void
+  clearAllMatters: () => void
+  resetFilters: () => void
+}
+
+function SupervisorView(props: SupervisorViewProps) {
+  const {
+    supervisorStatus, setSupervisorStatus, nextOfficeDate, setNextOfficeDate, counts, matters, filteredMatters,
+    searchTerm, setSearchTerm, statusFilter, setStatusFilter, handlingFilter, setHandlingFilter,
+    openMatter, clearAllMatters, resetFilters,
+  } = props
+
+  const hasActiveFilters = searchTerm.trim() !== '' || statusFilter !== 'All' || handlingFilter !== 'All'
+
+  return (
+    <div className="space-y-8">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Supervisor workspace</span>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Support operations</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Manage availability, triage new matters, and keep requests moving.</p>
+        </div>
+        <div className="text-sm text-slate-500">{formatLongDate(new Date())}</div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Current availability</p>
+            <div className="mt-2 flex items-center gap-3">
+              <span className={`h-2.5 w-2.5 rounded-full ${supervisorStatus === 'In Office' ? 'bg-emerald-500' : 'bg-sky-500'}`} />
+              <h3 className="text-xl font-bold text-slate-950">{supervisorStatus}</h3>
+            </div>
+            <p className="mt-2 text-sm text-slate-500">This status is shown to interns on the submission page.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[560px]">
+            <div className="rounded-xl bg-slate-50 p-3">
+              <label className="mb-2 block text-xs font-semibold text-slate-500">Working mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['In Office', 'Working Remotely'] as SupervisorStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setSupervisorStatus(status)}
+                    className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                      supervisorStatus === status ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3">
+              <label htmlFor="next-office-date" className="mb-2 block text-xs font-semibold text-slate-500">Next physical office date</label>
+              <input
+                id="next-office-date"
+                type="date"
+                value={nextOfficeDate}
+                onChange={(event) => setNextOfficeDate(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <StatCard label="Total" value={counts.total} tone="slate" />
+        <StatCard label="New" value={counts.submitted} tone="violet" />
+        <StatCard label="Pending" value={counts.pending} tone="amber" />
+        <StatCard label="In Progress" value={counts.inProgress} tone="blue" />
+        <StatCard label="Paused" value={counts.paused} tone="orange" />
+        <StatCard label="Resolved" value={counts.resolved} tone="green" />
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-slate-950">Matter queue</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                {filteredMatters.length} {filteredMatters.length === 1 ? 'matter' : 'matters'} shown
+                {hasActiveFilters ? ` of ${matters.length}` : ''}.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search name, email, type or ID..."
+                className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 sm:w-72"
+              />
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'All' | MatterStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-400">
+                <option value="All">All statuses</option>
+                {matterStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+              <select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value as 'All' | HandlingMethod)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-400">
+                <option value="All">All handling</option>
+                <option value="Remote">Remote</option>
+                <option value="Physical">Physical</option>
+                <option value="Either / Not Sure">Either / Not Sure</option>
+              </select>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <button type="button" onClick={resetFilters} className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-700">Clear filters</button>
+          )}
+        </div>
+
+        {filteredMatters.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl">{matters.length === 0 ? '✓' : '⌕'}</div>
+            <p className="mt-4 font-bold text-slate-800">{matters.length === 0 ? 'No matters submitted yet' : 'No matching matters'}</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">
+              {matters.length === 0 ? 'New intern submissions will appear here automatically.' : 'Try changing your search term or filters.'}
+            </p>
+            {hasActiveFilters && <button type="button" onClick={resetFilters} className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white">Reset filters</button>}
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredMatters.map((matter) => (
+              <button key={matter.id} type="button" onClick={() => openMatter(matter)} className="group block w-full px-5 py-5 text-left transition hover:bg-slate-50 sm:px-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-500">{formatMatterId(matter)}</span>
+                      <StatusBadge status={matter.status} />
+                      <HandlingBadge handling={matter.handling} />
+                    </div>
+                    <h4 className="mt-3 truncate text-base font-bold text-slate-900 group-hover:text-indigo-700">{matter.matterType}</h4>
+                    <p className="mt-1 text-sm font-medium text-slate-600">{matter.name} <span className="font-normal text-slate-400">· {matter.internType} · {matter.location}</span></p>
+                    <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-slate-500">{matter.description}</p>
+                  </div>
+                  <div className="shrink-0 text-left lg:text-right">
+                    <p className="text-xs font-medium text-slate-400">{formatDate(matter.submittedAt)}</p>
+                    <p className="mt-2 text-xs font-bold text-indigo-600 opacity-0 transition group-hover:opacity-100">Open matter →</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {matters.length > 0 && (
+          <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-right sm:px-6">
+            <button type="button" onClick={clearAllMatters} className="text-xs font-semibold text-red-600 hover:text-red-700">Clear all matters</button>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+type MatterDetailProps = {
+  matter: Matter
+  noteDraft: string
+  pauseReasonDraft: string
+  setNoteDraft: (value: string) => void
+  setPauseReasonDraft: (value: string) => void
+  changeStatus: (status: MatterStatus) => void
+  saveSupervisorNote: () => void
+  savePauseReason: () => void
+  closeMatter: () => void
+}
+
+function MatterDetail({ matter, noteDraft, pauseReasonDraft, setNoteDraft, setPauseReasonDraft, changeStatus, saveSupervisorNote, savePauseReason, closeMatter }: MatterDetailProps) {
+  return (
+    <div className="space-y-6">
+      <button type="button" onClick={closeMatter} className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-slate-900">← Back to matter queue</button>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-6 sm:px-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs font-bold text-slate-500">{formatMatterId(matter)}</span>
+                <StatusBadge status={matter.status} />
+              </div>
+              <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">{matter.matterType}</h2>
+              <p className="mt-2 text-sm text-slate-500">Submitted by <strong className="text-slate-700">{matter.name}</strong> · {formatDate(matter.submittedAt)}</p>
+            </div>
+            <HandlingBadge handling={matter.handling} />
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-[1fr_340px]">
+          <div className="p-5 sm:p-7 lg:border-r lg:border-slate-200">
+            <DetailSection title="Matter description">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{matter.description}</p>
+            </DetailSection>
+
+            <DetailSection title="Intern details">
+              <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+                <DetailItem label="Full name" value={matter.name} />
+                <DetailItem label="Intern type" value={matter.internType} />
+                <DetailItem label="Email" value={matter.email} />
+                <DetailItem label="Phone" value={matter.phone} />
+                <DetailItem label="Office location" value={matter.location} />
+                <DetailItem label="Preferred handling" value={matter.handling} />
+              </div>
+            </DetailSection>
+
+            {matter.pauseReason && (
+              <div className="mt-7 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-orange-700">Pause reason</p>
+                <p className="mt-1 text-sm font-medium text-orange-900">{matter.pauseReason}</p>
+              </div>
+            )}
+          </div>
+
+          <aside className="bg-slate-50/70 p-5 sm:p-6">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Matter status</label>
+              <select value={matter.status} onChange={(event) => changeStatus(event.target.value as MatterStatus)} className={`${inputClass} mt-2 bg-white`}>
+                {matterStatuses.map((status) => <option key={status}>{status}</option>)}
+              </select>
+            </div>
+
+            {matter.status === 'Paused' && (
+              <div className="mt-6 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                <label className="text-xs font-bold uppercase tracking-wide text-orange-800">Pause reason</label>
+                <select value={pauseReasonDraft} onChange={(event) => setPauseReasonDraft(event.target.value)} className="mt-2 w-full rounded-lg border border-orange-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-orange-100">
+                  <option value="">Select a reason</option>
+                  {pauseReasons.map((reason) => <option key={reason}>{reason}</option>)}
+                </select>
+                <button type="button" onClick={savePauseReason} className="mt-3 w-full rounded-lg bg-orange-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-orange-700">Save pause reason</button>
+              </div>
+            )}
+
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Supervisor note</label>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Internal note for follow-up and context.</p>
+              <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} rows={7} className={`${inputClass} mt-3 resize-y bg-white`} placeholder="Add an internal note about this matter..." />
+              <button type="button" onClick={saveSupervisorNote} className="mt-3 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Save note</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AvailabilityCard({ supervisorStatus, nextOfficeDate }: { supervisorStatus: SupervisorStatus; nextOfficeDate: string }) {
+  const inOffice = supervisorStatus === 'In Office'
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="grid md:grid-cols-[1.4fr_1fr]">
+        <div className="p-5 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Supervisor availability</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className={`h-3 w-3 rounded-full ring-4 ${inOffice ? 'bg-emerald-500 ring-emerald-50' : 'bg-sky-500 ring-sky-50'}`} />
+            <h3 className="text-2xl font-bold text-slate-950">{supervisorStatus}</h3>
+          </div>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+            {inOffice ? 'The supervisor is currently available for physical support at the office.' : 'The supervisor is currently working remotely. Remote matters can still be submitted for attention.'}
+          </p>
+        </div>
+        <div className="border-t border-slate-200 bg-slate-50 p-5 sm:p-6 md:border-l md:border-t-0">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Next physical availability</p>
+          <p className="mt-3 text-lg font-bold text-slate-900">{nextOfficeDate ? formatOfficeDate(nextOfficeDate) : 'To be announced'}</p>
+          <p className="mt-1 text-sm text-slate-500">Check this date before choosing physical handling.</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FormSection({ number, title, description, children }: { number: string; title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="border-b border-slate-200 py-7 first:pt-0 last:border-0 last:pb-0">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{number}</span>
+        <div>
+          <h4 className="font-bold text-slate-900">{title}</h4>
+          <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-slate-700">{label}</span>
+      {hint && <span className="ml-2 text-xs font-normal text-slate-400">{hint}</span>}
+      <div className="mt-2">{children}</div>
+    </label>
+  )
+}
+
+function StatCard({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'violet' | 'amber' | 'blue' | 'orange' | 'green' }) {
+  const tones = {
+    slate: 'bg-slate-100 text-slate-700',
+    violet: 'bg-violet-50 text-violet-700',
+    amber: 'bg-amber-50 text-amber-700',
+    blue: 'bg-blue-50 text-blue-700',
+    orange: 'bg-orange-50 text-orange-700',
+    green: 'bg-emerald-50 text-emerald-700',
+  }
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className={`mb-4 h-2 w-8 rounded-full ${tones[tone].split(' ')[0]}`} />
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className={`mt-2 text-3xl font-bold tracking-tight ${tones[tone].split(' ')[1]}`}>{value}</p>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: MatterStatus }) {
+  const classes: Record<MatterStatus, string> = {
+    Submitted: 'bg-violet-50 text-violet-700 ring-violet-200',
+    Pending: 'bg-amber-50 text-amber-700 ring-amber-200',
+    'In Progress': 'bg-blue-50 text-blue-700 ring-blue-200',
+    Paused: 'bg-orange-50 text-orange-700 ring-orange-200',
+    Resolved: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    Unresolved: 'bg-red-50 text-red-700 ring-red-200',
+  }
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${classes[status]}`}>{status}</span>
+}
+
+function HandlingBadge({ handling }: { handling: HandlingMethod }) {
+  const classes: Record<HandlingMethod, string> = {
+    Remote: 'bg-sky-50 text-sky-700 ring-sky-200',
+    Physical: 'bg-orange-50 text-orange-700 ring-orange-200',
+    'Either / Not Sure': 'bg-slate-100 text-slate-600 ring-slate-200',
+  }
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${classes[handling]}`}>{handling}</span>
+}
+
+function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="border-b border-slate-200 py-7 first:pt-0 last:border-0 last:pb-0">
+      <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-slate-800">{value}</p>
+    </div>
+  )
+}
+
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50'
+
+function formatDate(timestamp: number) {
+  return new Date(timestamp).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function formatLongDate(date: Date) {
+  return date.toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function formatOfficeDate(value: string) {
+  const date = new Date(`${value}T12:00:00`)
+  if (Number.isNaN(date.getTime())) return 'To be announced'
+  return formatLongDate(date)
+}
+
+function formatMatterId(matter: Pick<Matter, 'id' | 'submittedAt'>) {
+  return formatMatterIdFromValues(matter.id, matter.submittedAt)
+}
+
+function formatMatterIdFromValues(id: number, submittedAt: number) {
+  const date = new Date(submittedAt)
+  const yy = String(date.getFullYear()).slice(-2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const suffix = String(id).slice(-4)
+  return `ISD-${yy}${mm}${dd}-${suffix}`
 }
 
 export default App
