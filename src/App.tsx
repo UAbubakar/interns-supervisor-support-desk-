@@ -65,6 +65,7 @@ const STORAGE_KEY = 'intern-supervisor-support-desk-matters'
 // Styled Component
 // ========================================
 
+/*
 const StatusBadge = styled.span<{ status: MatterStatus }>`
   display: inline-flex;
   align-items: center;
@@ -107,14 +108,17 @@ const StatusBadge = styled.span<{ status: MatterStatus }>`
     }
   }}
 `
+*/
 
 function App() {
   const [supervisorStatus, setSupervisorStatus] =
     useState<SupervisorStatus>('Working Remotely')
 
-  const [nextOfficeDate, setNextOfficeDate] =
+  /*
+    const [nextOfficeDate, setNextOfficeDate] =
     useState('2026-08-24')
-
+  */
+ 
   const [activeView, setActiveView] =
     useState<'intern' | 'supervisor'>('intern')
 
